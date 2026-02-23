@@ -11,11 +11,12 @@
 ----> Parsing fxn
 
 type FrameData = {
-	cframe: { number },
+	cframe: { number }, -- the 12 numbers
 	scale: Vector3,
-	collide: boolean,
+	cancollide: boolean,
 	anchored: boolean,
 	color3: Color3,
+	tagline: string, -- like "Part created in workspace" or something
 }
 
 -- Services
@@ -36,9 +37,11 @@ local function getFrameData(token: buffer) end
 
 local function tokenizeFrameData(data: FrameData) end
 
-local function capture(UID: string)
+local function capture(UID: string, description: string)
 	local part: BasePart = CS:GetTagged(UID)[1]
 	local ref = tracked[UID] -- so what we wanna do is have each UID in tracked contain a framedata history as a table of buffers
+
+	description = (not description or description == "") and "<Empty>" or description
 
 	rawset(
 		ref,
@@ -46,9 +49,10 @@ local function capture(UID: string)
 		tokenizeFrameData({
 			cframe = part.CFrame:GetComponents(),
 			scale = part.Size,
-			collide = part.CanCollide,
+			cancollide = part.CanCollide,
 			anchored = part.Anchored,
 			color3 = part.Color,
+			tagline = description,
 		})
 	)
 end
@@ -56,6 +60,8 @@ end
 -- Connections, detections...
 workspace.DescendantAdded:Connect(function(i: Instance)
 	if i:IsA("BasePart") then
-		CS:AddTag(i, HS:GenerateGUID(false))
+		local UID = HS:GenerateGUID(false)
+		CS:AddTag(i, UID)
+		capture(UID, `Added {i.Name} to Workspace`) -- the first one (initialization)
 	end
 end)
