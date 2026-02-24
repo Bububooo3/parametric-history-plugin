@@ -30,13 +30,15 @@ local current: number -- our current node
 
 -- Magic numbers
 local DESTROY_CODE = -2 -- if #cframe == 1 and [1] is this code then we know this is the end of the line and we handle it accordingly
-local TAGLINE_BYTE_LIMIT = 28
-local STORAGE_LIMIT = 8000 -- bytes (calibrate later)
+local TAGLINE_BYTE_LIMIT = 36
+local STORAGE_LIMIT = 10000000 -- 10 MB
+-- 		^ maximum size of 1 frame is 100 bytes (100,000 entries max before shifting)
 
 -- Storage
 local tracked: { [string]: { [number]: number } } = {} -- [UID]: {[timestamp]: cursor location}
-local storage = buffer.create((64 + TAGLINE_BYTE_LIMIT) * STORAGE_LIMIT)
+local storage = buffer.create(STORAGE_LIMIT)
 local available = #storage
+local refresh = 0.8 -- The percent to keep when shifting space --> must be on [0, 1)
 
 setmetatable(tracked, {
 	__index = function(t, k)
@@ -47,20 +49,29 @@ setmetatable(tracked, {
 })
 
 -- Helper fxns
+----> STRINGS
+------> (truncate tagline for storage)
+local function taglineEncode(s: string): string
+	return s:sub(1, math.min(#s, TAGLINE_BYTE_LIMIT - 3)) .. "..."
+end
+
+----> FRAME DATA
+------> (token to frame)
+------> (frame to token)
 local function getFrameData(token: buffer) end
 
-local function tokenizeFrameData(data: FrameData): number
-	local offset = 0 -- units is bytes
-	local tl = data.tagline
+local function tokenizeFrameData(offset: number, data: FrameData): number
+	local tl = taglineEncode(data.tagline)
 	local l = tl:len()
 	local b = buffer.create(64 + 16 + l * 8)
 
 	if available - #b < 0 then
-		-- make space by shifting everything over (buffer.copy())
-		--[[
-		TODO FINISH SWITCHING FROM USING A TABLE OF BUFFERS TO USING ONE GIANT BUFFER
-		MAKE SURE TO EDIT THE "tracked" CONTAINER TOO WHEN MAKING SPACE FOR NEW DATA
-		]]
+		local oldstorage = storage
+		storage = buffer.create(STORAGE_LIMIT)
+		buffer.copy(storage, 0, oldstorage, oldstorage * (1 - refresh), oldstorage.len() * refresh)
+		-- edit 'tracked' container
+		-- do it by figuring out the timestamp that we're cutting off at
+		-- (take the framedata of the first frame)
 	end
 
 	-- CFrame components [48]
@@ -98,13 +109,20 @@ local function tokenizeFrameData(data: FrameData): number
 	buffer.writeu16(b, offset, l)
 	buffer.writestring(b, offset + 2, tl)
 
+	-- Get us to 100 bytes
+	offset += TAGLINE_BYTE_LIMIT + 2
+
 	available -= offset
+
 	return offset
 end
 
-----> Do the drawing now
+----> UI
+------> (new entry in capture log)
 local function updateLog() end
 
+----> CAPTURE
+------> (store a snapshot in the buffer)
 local function capture(UID: string, description: string)
 	-- Handle the real deal background stuff up in here
 	local part: BasePart = CS:GetTagged(UID)[1]
@@ -137,7 +155,7 @@ local function capture(UID: string, description: string)
 	end
 	--------------------------------------
 
-	description = (not description or description == "") and `Edited {part.Name}` or description
+	description = taglineEncode((not description or description == "") and `Edited {part.Name}` or description)
 
 	rawset(
 		ref,
@@ -167,6 +185,7 @@ end)
 workspace.DescendantRemoving:Connect(function(i: Instance)
 	if i:IsA("BasePart") then
 		local UID = HS:GenerateGUID(false)
-		task.delay(0.05, capture, UID, `Removed {i.Name} from Workspace`) -- might wanna calibrate that delay
+		task.delay(0.05, capture, UID, `Removed {i.Name} from Workspace`) -- might wanna calibrate that bad boy in the future
+		-- 			^ or even just make it a setting so that I don't even have to deal with it
 	end
 end)
