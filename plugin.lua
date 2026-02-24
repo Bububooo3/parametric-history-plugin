@@ -19,18 +19,25 @@ type FrameData = {
 	tagline: string, -- varies (+ 2 for len)
 }
 
+type Node = {
+	UID: string,
+	timestamp: number,
+	n: Node,
+	p: Node
+}
+
 -- Services
 local HS = game:GetService("HttpService")
 local CS = game:GetService("CollectionService")
 
 -- LinkedList
-local root: number -- reverse linkedlist inside of our hashmaps (first capture)
-local head: number -- like the most recent capture
-local current: number -- our current node
+local root: Node -- reverse linkedlist inside of our hashmaps (first capture)
+local head: Node -- like the most recent capture
+local current: Node -- our current node
 
 -- Magic numbers
 local DESTROY_CODE = -2 -- if #cframe == 1 and [1] is this code then we know this is the end of the line and we handle it accordingly
-local TAGLINE_BYTE_LIMIT = 36
+local TAGLINE_BYTE_LIMIT = 34 -- save 2 bytes for the tagline length
 local STORAGE_LIMIT = 10000000 -- 10 MB
 -- 		^ maximum size of 1 frame is 100 bytes (100,000 entries max before shifting)
 
@@ -55,6 +62,23 @@ local function taglineEncode(s: string): string
 	return s:sub(1, math.min(#s, TAGLINE_BYTE_LIMIT - 3)) .. "..."
 end
 
+----> LINKEDLIST
+-------> (make a node)
+-------> (insert a node)
+local function insertNode(pNode: Node)
+	
+end
+
+local function newNode(id: string, t: number?, pNode: Node?, nNode: Node?): Node
+	local nn = {
+		UID = id,
+		timestamp = t or os.time(),
+		p = pNode or head,
+		n = nNode or nil
+	}
+	return nn
+end
+
 ----> FRAME DATA
 ------> (token to frame)
 ------> (frame to token)
@@ -72,6 +96,8 @@ local function tokenizeFrameData(offset: number, data: FrameData): number
 		-- edit 'tracked' container
 		-- do it by figuring out the timestamp that we're cutting off at
 		-- (take the framedata of the first frame)
+
+		root = 
 	end
 
 	-- CFrame components [48]
