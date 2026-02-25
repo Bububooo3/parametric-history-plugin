@@ -22,8 +22,8 @@ type FrameData = {
 type Node = {
 	UID: string,
 	timestamp: number,
-	n: Node,
-	p: Node
+	n: Node?,
+	p: Node?,
 }
 
 -- Services
@@ -38,7 +38,7 @@ local current: Node -- our current node
 -- Magic numbers
 local DESTROY_CODE = -2 -- if #cframe == 1 and [1] is this code then we know this is the end of the line and we handle it accordingly
 local TAGLINE_BYTE_LIMIT = 34 -- save 2 bytes for the tagline length
-local STORAGE_LIMIT = 10000000 -- 10 MB
+local STORAGE_LIMIT = 10000000 -- ~10 MB
 -- 		^ maximum size of 1 frame is 100 bytes (100,000 entries max before shifting)
 
 -- Storage
@@ -62,21 +62,79 @@ local function taglineEncode(s: string): string
 	return s:sub(1, math.min(#s, TAGLINE_BYTE_LIMIT - 3)) .. "..."
 end
 
-----> LINKEDLIST
--------> (make a node)
--------> (insert a node)
-local function insertNode(pNode: Node)
-	
+----> STORAGE
+------> (shift for new space)
+local function shiftDB()
+	local oldstorage = storage
+	storage = buffer.create(STORAGE_LIMIT)
+	buffer.copy(storage, 0, oldstorage, oldstorage * (1 - refresh), oldstorage.len() * refresh)
+	-- edit 'tracked' container
+	-- do it by figuring out the timestamp that we're cutting off at
+	-- (take the framedata of the first frame)
 end
 
-local function newNode(id: string, t: number?, pNode: Node?, nNode: Node?): Node
-	local nn = {
+----> LINKEDLIST
+-------> (refresh current var's val)
+local function refreshCurrent()
+	if current then
+		return
+	end
+
+	if head then
+		current = head
+	elseif root then
+		current = root
+	else
+		warn("LinkedList does not exist, so current was not assigned a value")
+		return
+	end
+end
+
+-------> (update head and root)
+local function refreshHeadRoot()
+	refreshCurrent()
+
+	-- Handle the head
+	while current.n do
+		current = current.n
+	end
+	head = current
+
+	-- Handle the root
+	while current.p do
+		current = current.p
+	end
+	root = current
+end
+
+-------> (insert a node)
+local function insertNode(iNode: Node, pNode: Node?, nNode: Node?)
+	if pNode then
+		iNode.p = pNode
+		iNode.n = pNode.n or nNode
+		pNode.n = iNode
+	else
+		iNode.p = nil
+		iNode.n = nNode
+	end
+
+	if nNode then
+		nNode.p = iNode
+	end
+
+	refreshHeadRoot()
+
+	return iNode
+end
+
+-------> (make a node)
+local function newNode(id: string, t: number?): Node
+	return {
 		UID = id,
 		timestamp = t or os.time(),
-		p = pNode or head,
-		n = nNode or nil
+		p = nil,
+		n = nil,
 	}
-	return nn
 end
 
 ----> FRAME DATA
@@ -90,14 +148,7 @@ local function tokenizeFrameData(offset: number, data: FrameData): number
 	local b = buffer.create(64 + 16 + l * 8)
 
 	if available - #b < 0 then
-		local oldstorage = storage
-		storage = buffer.create(STORAGE_LIMIT)
-		buffer.copy(storage, 0, oldstorage, oldstorage * (1 - refresh), oldstorage.len() * refresh)
-		-- edit 'tracked' container
-		-- do it by figuring out the timestamp that we're cutting off at
-		-- (take the framedata of the first frame)
-
-		root = 
+		shiftDB()
 	end
 
 	-- CFrame components [48]
