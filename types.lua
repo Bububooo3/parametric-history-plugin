@@ -1,0 +1,19 @@
+--------------------------------------------------------------------------------
+export type FrameData = {
+cframe: { number }, -- 12 * f32 is like 48 bytes
+	scale: Vector3, -- 3 * f32 = 12 bytes
+	cancollide: boolean, -- (shared 1 byte) u8
+	anchored: boolean, -- (shared 1 byte) u8
+	color3: Color3, -- 3 * u8 = 3 bytes
+	tagline: string, -- varies (+ 2 for len)
+}
+
+export type Node = {
+	UID: string,
+	timestamp: number,
+	n: Node?,
+	p: Node?,
+}
+--------------------------------------------------------------------------------
+
+return {}
