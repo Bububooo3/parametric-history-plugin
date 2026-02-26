@@ -1,4 +1,10 @@
+--------------------------------------------------------------------------------
+------[ VARIABLES ]-------------------------------------------------------------
+--------------------------------------------------------------------------------
 local MS = {}
+--------------------------------------------------------------------------------
+-- Services
+local CS = game:GetService("CollectionService")
 
 --------------------------------------------------------------------------------
 -- Configuration
@@ -9,13 +15,13 @@ local STORAGE_LIMIT = 10000000 -- ~10 MB
 -- 		^ maximum size of 1 frame is 100 bytes (100,000 entries max before shifting)
 
 --------------------------------------------------------------------------------
--- HashMap
-local tracked: { [string]: { [number]: number } } = {} -- [UID]: {[timestamp]: cursor location}
-local storage = buffer.create(STORAGE_LIMIT)
-local available = #storage
-
 -- Dependencies
 local Types = require("types")
+
+-- HashMap
+local tracked: {[string]: { [number]: number } } = {} -- [UID]: {[timestamp]: cursor location}
+local storage = buffer.create(STORAGE_LIMIT)
+local available = #storage
 
 --------------------------------------------------------------------------------
 -- Metamethod magic
@@ -46,14 +52,11 @@ local function shiftDB() ----> (shift for new space)
 	-- (take the framedata of the first frame)
 end
 
---------------------------------------------------------------------------------
+----> Gets frame data from token
+local function getFrameData(token: buffer) end
 
---------------------------------------------------------------------------------
-------[ PUBLIC METHODS ]--------------------------------------------------------
---------------------------------------------------------------------------------
-function MS.getFrameData(token: buffer) end
-
-function MS.tokenizeFrameData(offset: number, data: Types.FrameData): number
+----> Generates token from frame data and puts it in the storage buffer
+local function tokenizeFrameData(offset: number, data: Types.FrameData): number
 	local tl = taglineEncode(data.tagline)
 	local l = tl:len()
 	local b = buffer.create(64 + 16 + l * 8)
@@ -66,6 +69,7 @@ function MS.tokenizeFrameData(offset: number, data: Types.FrameData): number
 	for _, n in ipairs(data.cframe) do
 		buffer.writef32(b, offset, n)
 		offset += 4
+		task.wait()
 	end
 
 	-- Scale [12]
@@ -97,13 +101,78 @@ function MS.tokenizeFrameData(offset: number, data: Types.FrameData): number
 	buffer.writeu16(b, offset, l)
 	buffer.writestring(b, offset + 2, tl)
 
-	-- Get us to 100 bytes
+	-- Get us to 100 bytes added
 	offset += TAGLINE_BYTE_LIMIT + 2
 
-	available -= offset
+	available -= 100
 
-	return offset
+	return offset -- new cursor location
 end
 
+local function handleNonexisting(UID, description)
+	local ref = tracked[UID]
+	if #ref > 0 then -- the part was destroyed
+		rawset(
+			ref,
+			os.time(),
+			tokenizeFrameData(#storage - available, {
+				cframe = { DESTROY_CODE },
+				scale = Vector3.zero,
+				cancollide = false,
+				anchored = false,
+				color3 = 0,
+				tagline = description or taglineEncode(`Removed <{UID}>`),
+			})
+		)
+	else
+		-- if we're atp, then this thing never even existed
+		tracked[UID] = nil
+		warn(taglineEncode(`Not found: <{UID}>`))
+	end
+	return
+end
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+------[ PUBLIC METHODS ]--------------------------------------------------------
+--------------------------------------------------------------------------------
+function MS.capture(UID: string, description: string) --> (store a snapshot in the buffer)
+	-- Handle the real deal background stuff up in here
+	local part: BasePart = CS:GetTagged(UID)[1]
+	local ref = tracked[UID] -- so what we wanna do is have each UID in tracked contain a framedata history as a table of buffers locations w/ unique time as key
+
+	--------------------------------------
+	if (part == nil) or part.Parent ~= workspace then -- please pardon this interruption
+		handleNonexisting(UID, description)
+	end
+	--------------------------------------
+
+	description = taglineEncode((not description or description == "") and `Edited {part.Name}` or description)
+
+	rawset(
+		ref,
+		os.time(),
+		tokenizeFrameData(#storage - available, {
+			cframe = part.CFrame:GetComponents(),
+			scale = part.Size,
+			cancollide = part.CanCollide,
+			anchored = part.Anchored,
+			color3 = part.Color,
+			tagline = description,
+		})
+	)
+end
+
+function MS.getUID(part: BasePart) --> Get UID from BasePart
+	task.desynchronize()
+	for _, s: string in part:GetTags() do
+		if #s == 36 and rawget(tracked, s) then
+			return s
+		end
+	end
+	task.synchronize()
+
+	return nil
+end
 --------------------------------------------------------------------------------
 return MS

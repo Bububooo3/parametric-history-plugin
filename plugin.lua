@@ -26,71 +26,24 @@ local MS = require("mapstore")
 ------> (new entry in capture log)
 local function updateLog() end
 
-----> CAPTURE
-------> (store a snapshot in the buffer)
-local function capture(UID: string, description: string)
-	-- Handle the real deal background stuff up in here
-	local part: BasePart = CS:GetTagged(UID)[1]
-	local ref = tracked[UID] -- so what we wanna do is have each UID in tracked contain a framedata history as a table of buffers w/ unique time as key
 
-	--------------------------------------
-	if (part == nil) or part.Parent ~= workspace then -- please pardon this interruption
-		if #ref > 0 then -- the part was destroyed
-			rawset(
-				ref,
-				os.time(),
-				tokenizeFrameData({
-					cframe = { DESTROY_CODE },
-					scale = Vector3.zero,
-					cancollide = false,
-					anchored = false,
-					color3 = 0,
-					tagline = description or `Removed item with ID: <{UID}> from Workspace`,
-				})
-			)
-
-			updateLog()
-			return
-		end
-
-		-- if we're atp, then this thing never even existed
-		tracked[UID] = nil
-		warn(`Failed to locate item with ID: <{UID}>`)
-		return
-	end
-	--------------------------------------
-
-	description = taglineEncode((not description or description == "") and `Edited {part.Name}` or description)
-
-	rawset(
-		ref,
-		os.time(),
-		tokenizeFrameData({
-			cframe = part.CFrame:GetComponents(),
-			scale = part.Size,
-			cancollide = part.CanCollide,
-			anchored = part.Anchored,
-			color3 = part.Color,
-			tagline = description,
-		})
-	)
-
-	updateLog()
-end
+updateLog()
 
 -- Connections, detections...
 workspace.DescendantAdded:Connect(function(i: Instance)
 	if i:IsA("BasePart") then
 		local UID = HS:GenerateGUID(false)
 		CS:AddTag(i, UID)
-		capture(UID, `Added {i.Name} to Workspace`) -- the first one (initialization)
+		MS.capture(UID, `Inserted {i.Name}`) -- the first one (initialization)
 	end
 end)
 
 workspace.DescendantRemoving:Connect(function(i: Instance)
-	if i:IsA("BasePart") then
-		local UID = HS:GenerateGUID(false)
-		task.delay(0.05, capture, UID, `Removed {i.Name} from Workspace`) -- might wanna calibrate that bad boy in the future
-		-- 			^ or even just make it a setting so that I don't even have to deal with it
+	if i:IsA("BasePart")  then
+		local UID = MS.getUID(i) ----> Try not to use often bc loops r sluggish, right?
+		if UID then
+			task.delay(0.05, MS.capture, UID, `Removed {i.Name}`) -- might wanna calibrate that bad boy in the future
+			-- 			^ or even just make it a setting so that I don't even have to deal with it
+		end
 	end
 end)
