@@ -42,6 +42,19 @@ local function taglineEncode(s: string): string --> (truncate tagline for storag
 	return s:sub(1, math.min(#s, TAGLINE_BYTE_LIMIT - 3)) .. "..."
 end
 
+----> Gets frame data from token
+local function getFrameData(location: number): Types.FrameData
+	if location%100 ~= 0 then
+		warn("Attempted to find a frame at an invalid location")
+	end
+
+	local offset = location
+	
+
+	-- now synthesize the frame data from the token
+
+end
+
 local function shiftDB() ----> (shift for new space)
 	local oldstorage = storage
 	storage = buffer.create(STORAGE_LIMIT)
@@ -50,33 +63,37 @@ local function shiftDB() ----> (shift for new space)
 	-- edit 'tracked' container
 	-- do it by figuring out the timestamp that we're cutting off at
 	-- (take the framedata of the first frame)
+
+	
+	for i, v in pairs(tracked) do
+		
+	end
+
+
 end
 
-----> Gets frame data from token
-local function getFrameData(token: buffer) end
 
 ----> Generates token from frame data and puts it in the storage buffer
 local function tokenizeFrameData(offset: number, data: Types.FrameData): number
 	local tl = taglineEncode(data.tagline)
 	local l = tl:len()
-	local b = buffer.create(64 + 16 + l * 8)
 
-	if available - #b < 0 then
+	if available - 100 < 0 then
 		shiftDB()
 	end
 
 	-- CFrame components [48]
 	for _, n in ipairs(data.cframe) do
-		buffer.writef32(b, offset, n)
+		buffer.writef32(storage, offset, n)
 		offset += 4
 		task.wait()
 	end
 
 	-- Scale [12]
 	local s = data.scale
-	buffer.writef32(b, offset, s.X)
-	buffer.writef32(b, offset + 4, s.Y)
-	buffer.writef32(b, offset + 8, s.Z)
+	buffer.writef32(storage, offset, s.X)
+	buffer.writef32(storage, offset + 4, s.Y)
+	buffer.writef32(storage, offset + 8, s.Z)
 	offset += 12
 
 	-- CanCollide/Anchored [1]
@@ -87,19 +104,19 @@ local function tokenizeFrameData(offset: number, data: Types.FrameData): number
 	if data.anchored then
 		ca += 2
 	end
-	buffer.writeu8(b, offset, ca)
+	buffer.writeu8(storage, offset, ca)
 	offset += 1
 
 	-- Color3 [3]
 	local c = data.color3
-	buffer.writeu8(b, offset, (c.R * 255) // 1)
-	buffer.writeu8(b, offset + 1, (c.B * 255) // 1)
-	buffer.writeu8(b, offset + 2, (c.G * 255) // 1)
+	buffer.writeu8(storage, offset, (c.R * 255) // 1)
+	buffer.writeu8(storage, offset + 1, (c.B * 255) // 1)
+	buffer.writeu8(storage, offset + 2, (c.G * 255) // 1)
 	offset += 3
 
 	-- Tagline [idk + 2]
-	buffer.writeu16(b, offset, l)
-	buffer.writestring(b, offset + 2, tl)
+	buffer.writeu16(storage, offset, l)
+	buffer.writestring(storage, offset + 2, tl)
 
 	-- Get us to 100 bytes added
 	offset += TAGLINE_BYTE_LIMIT + 2
@@ -131,6 +148,8 @@ local function handleNonexisting(UID, description)
 	end
 	return
 end
+
+
 --------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
@@ -166,7 +185,7 @@ end
 function MS.getUID(part: BasePart) --> Get UID from BasePart
 	task.desynchronize()
 	for _, s: string in part:GetTags() do
-		if #s == 36 and rawget(tracked, s) then
+		if #s == 36 and rawget(tracked :: any, s) then
 			return s
 		end
 	end
