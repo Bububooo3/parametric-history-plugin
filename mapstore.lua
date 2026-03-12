@@ -110,6 +110,8 @@ local function shiftDB() ----> (shift for new space)
 	-- edit 'tracked' container
 	-- do it by figuring out the timestamp that we're cutting off at
 	-- (take the framedata of the first frame)
+	local newHead = getFrameData(0)
+	-- we need the UID to get the timestamp, but to get the UID we need to find this framedata in tracked, which is inefficient and unreliable. TODO
 
 	for i, v in pairs(tracked) do
 	end
