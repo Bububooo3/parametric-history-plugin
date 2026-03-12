@@ -19,7 +19,7 @@ local STORAGE_LIMIT = 10000000 -- ~10 MB
 local Types = require("types")
 
 -- HashMap
-local tracked: {[string]: { [number]: number } } = {} -- [UID]: {[timestamp]: cursor location}
+local tracked: { [string]: { [number]: number } } = {} -- [UID]: {[timestamp]: cursor location}
 local storage = buffer.create(STORAGE_LIMIT)
 local available = #storage
 
@@ -44,15 +44,62 @@ end
 
 ----> Gets frame data from token
 local function getFrameData(location: number): Types.FrameData
-	if location%100 ~= 0 then
+	if location % 100 ~= 0 then
 		warn("Attempted to find a frame at an invalid location")
 	end
 
-	local offset = location
-	
-
 	-- now synthesize the frame data from the token
+	local offset = location
+	local data: Types.FrameData = {
+		cframe = {},
+		scale = nil,
+		cancollide = nil,
+		anchored = nil,
+		color3 = nil,
+		tagline = nil,
+	}
 
+	-- CFrame
+	for i = 1, 12 do
+		rawset(data.cframe, i, buffer.readf32(storage, offset))
+		offset += 4
+	end
+
+	-- Scale
+	rawset(
+		data,
+		"scale",
+		Vector3.new(
+			buffer.readf32(storage, offset),
+			buffer.readf32(storage, offset + 4),
+			buffer.readf32(storage, offset + 8)
+		)
+	)
+	offset += 12
+
+	-- CanCollide & Anchored
+	local ca = buffer.readu8(storage, offset)
+	rawset(data, "anchored", (bit32.band(ca, 1) ~= 0))
+	rawset(data, "cancollide", (bit32.band(ca, 2) ~= 0))
+	offset += 1
+
+	-- Color
+	rawset(
+		data,
+		"color3",
+		Color3.fromRGB(
+			buffer.readu8(storage, offset),
+			buffer.readu8(storage, offset + 1),
+			buffer.readu8(storage, offset + 2)
+		)
+	)
+	offset += 3
+
+	-- Tagline
+	rawset(data, "tagline", buffer.readstring(storage, offset + 2, buffer.readu16(storage, offset)))
+	offset += TAGLINE_BYTE_LIMIT + 2
+
+	return data
 end
 
 local function shiftDB() ----> (shift for new space)
@@ -64,14 +111,9 @@ local function shiftDB() ----> (shift for new space)
 	-- do it by figuring out the timestamp that we're cutting off at
 	-- (take the framedata of the first frame)
 
-	
 	for i, v in pairs(tracked) do
-		
 	end
-
-
 end
-
 
 ----> Generates token from frame data and puts it in the storage buffer
 local function tokenizeFrameData(offset: number, data: Types.FrameData): number
@@ -110,8 +152,8 @@ local function tokenizeFrameData(offset: number, data: Types.FrameData): number
 	-- Color3 [3]
 	local c = data.color3
 	buffer.writeu8(storage, offset, (c.R * 255) // 1)
-	buffer.writeu8(storage, offset + 1, (c.B * 255) // 1)
-	buffer.writeu8(storage, offset + 2, (c.G * 255) // 1)
+	buffer.writeu8(storage, offset + 1, (c.G * 255) // 1)
+	buffer.writeu8(storage, offset + 2, (c.B * 255) // 1)
 	offset += 3
 
 	-- Tagline [idk + 2]
@@ -148,7 +190,6 @@ local function handleNonexisting(UID, description)
 	end
 	return
 end
-
 
 --------------------------------------------------------------------------------
 
