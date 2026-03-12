@@ -16,7 +16,6 @@ local CS = game:GetService("CollectionService")
 
 -- Dependencies
 local Types = require("types")
-local LS = require("linkedstore")
 local MS = require("mapstore")
 
 --------------------------------------------------------------------------------

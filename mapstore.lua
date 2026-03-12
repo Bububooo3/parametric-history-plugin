@@ -17,6 +17,7 @@ local STORAGE_LIMIT = 10000000 -- ~10 MB
 --------------------------------------------------------------------------------
 -- Dependencies
 local Types = require("types")
+local LS = require("linkedstore")
 
 -- HashMap
 local tracked: Types.MapStore = {}
@@ -63,6 +64,7 @@ local function getFrameData(location: number): Types.FrameData
 	for i = 1, 12 do
 		rawset(data.cframe, i, buffer.readf32(storage, offset))
 		offset += 4
+		task.wait()
 	end
 
 	-- Scale
@@ -108,7 +110,9 @@ local function getUIDfromCursor(pos: number)
 			if offset == pos then
 				return UID
 			end
+			task.wait()
 		end
+		task.wait()
 	end
 
 	return nil
@@ -122,11 +126,17 @@ local function shiftDB() ----> (shift for new space)
 	-- edit 'tracked' container
 	-- do it by figuring out the timestamp that we're cutting off at
 	-- (take the framedata of the first frame)
-	local newHead = getFrameData(0)
-	-- we need the UID to get the timestamp, but to get the UID we need to find this framedata in tracked, which is inefficient and unreliable. TODO
 
-	for i, v in pairs(tracked) do
-	end
+	local first = LS.getNode(getUIDfromCursor(0))
+	local c = first
+
+	repeat
+		LS.removeNode(c)
+		c = c.n
+		task.wait()
+	until c == nil
+
+	gcinfo()
 end
 
 ----> Generates token from frame data and puts it in the storage buffer
