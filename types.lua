@@ -17,5 +17,11 @@ export type Node = {
 	p: Node?,
 }
 
+export type MapStore = {
+	[string]: { ----> UID
+		[number]: number, ---> [timestamp]: cursor location
+	},
+}
+
 --------------------------------------------------------------------------------
 return {}

@@ -19,7 +19,7 @@ local STORAGE_LIMIT = 10000000 -- ~10 MB
 local Types = require("types")
 
 -- HashMap
-local tracked: { [string]: { [number]: number } } = {} -- [UID]: {[timestamp]: cursor location}
+local tracked: Types.MapStore = {}
 local storage = buffer.create(STORAGE_LIMIT)
 local available = #storage
 
@@ -100,6 +100,18 @@ local function getFrameData(location: number): Types.FrameData
 	offset += TAGLINE_BYTE_LIMIT + 2
 
 	return data
+end
+
+local function getUIDfromCursor(pos: number)
+	for UID: string, data in pairs(tracked) do
+		for timestamp: number, offset: number in pairs(data) do
+			if offset == pos then
+				return UID
+			end
+		end
+	end
+
+	return nil
 end
 
 local function shiftDB() ----> (shift for new space)
