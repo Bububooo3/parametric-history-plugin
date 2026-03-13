@@ -54,6 +54,18 @@ end
 --------------------------------------------------------------------------------
 -------[ PUBLIC METHODS ]-------------------------------------------------------
 --------------------------------------------------------------------------------
+function LS.getHead()
+	return head
+end
+
+function LS.getRoot()
+	return root
+end
+
+function LS.getCurrent()
+	return current
+end
+
 function LS.insertNode(iNode: Types.Node, pNode: Types.Node?, nNode: Types.Node?) ----> (insert a node)
 	if pNode then
 		iNode.p = pNode

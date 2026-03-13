@@ -20,6 +20,8 @@ local STORAGE_LIMIT = 10000000 -- ~10 MB
 -- Dependencies
 local Types = require("types")
 local LS = require("linkedstore")
+local Hidden = Instance.new("Configuration")
+Hidden.Parent, Hidden.Name = game:GetService("ServerStorage"), "p_hist_plgn_hidden_storage"
 
 -- HashMap
 local tracked: Types.MapStore = {}
@@ -288,6 +290,13 @@ function MS.getUID(part: BasePart): string | nil --> Get UID from BasePart
 	end
 
 	return nil
+end
+
+function MS.setTime(t: number) ----> Moves all parts based on timestamp.
+	--[[ TODO
+	If it doesn't exist @ t, delete it. Thus, plugin isn't great for MeshParts
+	We can also hide them in a ServerStorage container, but that costs performance <---- probably doing this one (config varname is "Hidden")
+]]
 end
 --------------------------------------------------------------------------------
 return MS
