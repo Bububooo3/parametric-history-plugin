@@ -1,3 +1,5 @@
+--!strict
+--!optimize 2
 --------------------------------------------------------------------------------
 ------[ VARIABLES ]-------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -84,7 +86,7 @@ function LS.newNode(id: string, t: number?): Types.Node ----> (make a node)
 	}
 end
 
-function LS.getNode(target: number | string): Types.Node
+function LS.getNode(target: number | string | nil): Types.Node
 	-- Checks
 	if head == nil then
 		refreshHeadRoot()
@@ -103,7 +105,7 @@ function LS.getNode(target: number | string): Types.Node
 	return current
 end
 
-function LS.removeNode(rNode: Types.Node)
+function LS.removeNode(rNode: Types.Node): nil | { nx: Types.Node?, pv: Types.Node? }
 	local p = rNode.p
 	local n = rNode.n
 
@@ -112,15 +114,19 @@ function LS.removeNode(rNode: Types.Node)
 		return
 	end
 	--
-	if p == nil then
-		root = n
-	else
+	if p ~= nil then
 		p.n = n
 	end
-	--
-	if n == nil then
-	else
+
+	if n ~= nil then
+		n.p = p
 	end
+	--
+
+	table.clear(rNode) ----> Should be gc'd bc no references
+	refreshHeadRoot()
+
+	return { nx = n, pv = p }
 end
 --------------------------------------------------------------------------------
 return LS

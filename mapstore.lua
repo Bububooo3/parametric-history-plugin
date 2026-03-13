@@ -1,3 +1,5 @@
+--!strict
+--!optimize 2
 --------------------------------------------------------------------------------
 ------[ VARIABLES ]-------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -8,7 +10,7 @@ local CS = game:GetService("CollectionService")
 
 --------------------------------------------------------------------------------
 -- Configuration
-local REFRESH = 0.6 -- The percent to keep when shifting space --> must be on [0, 1)
+local REFRESH_SPACE = 0.6 -- The percent to keep when shifting space --> must be on [0, 1)
 local DESTROY_CODE = -2 -- if #cframe == 1 and [1] is this code then we know this is the end of the line and we handle it accordingly
 local TAGLINE_BYTE_LIMIT = 34 -- save 2 bytes for the tagline length
 local STORAGE_LIMIT = 10000000 -- ~10 MB
@@ -22,7 +24,7 @@ local LS = require("linkedstore")
 -- HashMap
 local tracked: Types.MapStore = {}
 local storage = buffer.create(STORAGE_LIMIT)
-local available = #storage
+local available = buffer.len(storage)
 
 --------------------------------------------------------------------------------
 -- Metamethod magic
@@ -51,7 +53,7 @@ local function getFrameData(location: number): Types.FrameData
 
 	-- now synthesize the frame data from the token
 	local offset = location
-	local data: Types.FrameData = {
+	local data: { [string]: any } = {
 		cframe = {},
 		scale = nil,
 		cancollide = nil,
@@ -104,7 +106,7 @@ local function getFrameData(location: number): Types.FrameData
 	return data
 end
 
-local function getUIDfromCursor(pos: number)
+local function getUIDfromCursor(pos: number): string | nil
 	for UID: string, data in pairs(tracked) do
 		for timestamp: number, offset: number in pairs(data) do
 			if offset == pos then
@@ -121,22 +123,43 @@ end
 local function shiftDB() ----> (shift for new space)
 	local oldstorage = storage
 	storage = buffer.create(STORAGE_LIMIT)
-	buffer.copy(storage, 0, oldstorage, oldstorage * (1 - REFRESH), oldstorage.len() * REFRESH)
-	-- TODO
-	-- edit 'tracked' container
-	-- do it by figuring out the timestamp that we're cutting off at
-	-- (take the framedata of the first frame)
 
-	local first = LS.getNode(getUIDfromCursor(0))
-	local c = first
+	local used = math.min(buffer.len(oldstorage) - available, STORAGE_LIMIT) ----> For safety
+	local preserved = math.floor(used * REFRESH_SPACE) ----> amount to take to the new one
+	local offset = used - preserved
 
-	repeat
-		LS.removeNode(c)
-		c = c.n
-		task.wait()
-	until c == nil
+	if preserved > 0 then
+		buffer.copy(storage, 0, oldstorage, offset, preserved)
+	end
 
-	gcinfo()
+	available = STORAGE_LIMIT - preserved
+
+	local c = LS.getNode(getUIDfromCursor(0))
+	local t = c.timestamp
+
+	-- LinkedStore
+	while task.wait() do
+		local crumbs = LS.removeNode(c) ----> prev & next of our fallen soldier
+
+		if crumbs == nil or crumbs.pv == nil then
+			break
+		end
+
+		c = crumbs.pv
+
+		if c.timestamp < t then
+			warn(`Issue: Timestamp conflict while shifting database ({c.timestamp} < {t})`)
+		end
+	end
+
+	-- MapStore
+	for UID: string, _ in pairs(tracked) do
+		for timestamp, v in pairs(tracked[UID]) do
+			if timestamp < t then
+				tracked[UID][timestamp] = nil
+			end
+		end
+	end
 end
 
 ----> Generates token from frame data and puts it in the storage buffer
@@ -198,19 +221,19 @@ local function handleNonexisting(UID, description)
 		rawset(
 			ref,
 			os.time(),
-			tokenizeFrameData(#storage - available, {
+			tokenizeFrameData(buffer.len(storage) - available, {
 				cframe = { DESTROY_CODE },
 				scale = Vector3.zero,
 				cancollide = false,
 				anchored = false,
-				color3 = 0,
+				color3 = Color3.new(),
 				tagline = description or taglineEncode(`Removed <{UID}>`),
 			})
 		)
 	else
-		-- if we're atp, then this thing never even existed
+		-- if we're atp, then this thing never even existed at all
 		tracked[UID] = nil
-		warn(taglineEncode(`Not found: <{UID}>`))
+		warn(`Not found: <{UID}>`)
 	end
 	return
 end
@@ -222,22 +245,31 @@ end
 --------------------------------------------------------------------------------
 function MS.capture(UID: string, description: string) --> (store a snapshot in the buffer)
 	-- Handle the real deal background stuff up in here
-	local part: BasePart = CS:GetTagged(UID)[1]
+	local ps: { Instance } = CS:GetTagged(UID)
 	local ref = tracked[UID] -- so what we wanna do is have each UID in tracked contain a framedata history as a table of buffers locations w/ unique time as key
 
-	--------------------------------------
-	if (part == nil) or part.Parent ~= workspace then -- please pardon this interruption
+	if #ps == 0 or not ps[1]:IsA("BasePart") then
+		warn(`Capture failed: <{UID}>`)
+		return
+	end
+
+	if ps[1].Parent ~= workspace then
 		handleNonexisting(UID, description)
 	end
-	--------------------------------------
 
-	description = taglineEncode((not description or description == "") and `Edited {part.Name}` or description)
+	local part = ps[1] :: BasePart
+
+	if description == nil or description == "" then
+		description = `Edited {part.Name}`
+	end
+
+	description = taglineEncode(description)
 
 	rawset(
 		ref,
 		os.time(),
-		tokenizeFrameData(#storage - available, {
-			cframe = part.CFrame:GetComponents(),
+		tokenizeFrameData(buffer.len(storage) - available, {
+			cframe = table.pack(part.CFrame:GetComponents()),
 			scale = part.Size,
 			cancollide = part.CanCollide,
 			anchored = part.Anchored,
@@ -247,14 +279,13 @@ function MS.capture(UID: string, description: string) --> (store a snapshot in t
 	)
 end
 
-function MS.getUID(part: BasePart) --> Get UID from BasePart
+function MS.getUID(part: BasePart): string | nil --> Get UID from BasePart
 	task.desynchronize()
 	for _, s: string in part:GetTags() do
 		if #s == 36 and rawget(tracked :: any, s) then
 			return s
 		end
 	end
-	task.synchronize()
 
 	return nil
 end

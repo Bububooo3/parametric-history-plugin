@@ -1,3 +1,4 @@
+--!strict
 --!optimize 2
 
 -- Detect new baseparts
