@@ -267,9 +267,10 @@ function MS.capture(UID: string, description: string) --> (store a snapshot in t
 
 	description = taglineEncode(description)
 
+	local t = os.time()
 	rawset(
 		ref,
-		os.time(),
+		t,
 		tokenizeFrameData(buffer.len(storage) - available, {
 			cframe = table.pack(part.CFrame:GetComponents()),
 			scale = part.Size,
@@ -279,6 +280,9 @@ function MS.capture(UID: string, description: string) --> (store a snapshot in t
 			tagline = description,
 		})
 	)
+
+	LS.insertNode({ UID = UID, timestamp = t }) -- Append it
+	LS.sortByTimestamps()
 end
 
 function MS.getUID(part: BasePart): string | nil --> Get UID from BasePart
@@ -288,21 +292,24 @@ function MS.getUID(part: BasePart): string | nil --> Get UID from BasePart
 			return s
 		end
 	end
+	task.synchronize()
 
 	return nil
 end
 
 function MS.setTime(t: number) ----> Moves all parts based on timestamp.
-	--[[ TODO
-	If it doesn't exist @ t, delete it. Thus, plugin isn't great for MeshParts
-	We can also hide them in a ServerStorage container, but that costs performance <---- probably doing this one (config varname is "Hidden")
-	]]
+	LS.sortByTimestamps()
 
 	local node = LS.getRoot() ----> First node to last so that time is increasing
 
 	while node do
 		if node.timestamp > t then
-			-- "Destroy" it
+			local n = node.n
+			local UID = node.UID
+
+			tracked[UID][node.timestamp] = nil
+			CS:GetTagged(UID)[1].Parent = Hidden
+			LS.removeNode(node)
 		else
 			-- Implement it
 		end

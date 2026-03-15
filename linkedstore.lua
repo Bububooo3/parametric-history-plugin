@@ -66,15 +66,16 @@ function LS.insertNode(iNode: Types.Node, pNode: Types.Node?, nNode: Types.Node?
 		nNode.p = iNode
 	elseif nNode then
 		iNode.n = nNode
-		iNode.p = nil ----> Dangerous bc it creates a 1-way road for iteration
+		iNode.p = nNode.p
 		nNode.p = iNode
 	elseif pNode then
-		iNode.n = nil ----> Also dangerous
+		iNode.n = pNode.n ----> Also dangerous
 		iNode.p = pNode
 		pNode.n = iNode
-	else
+	else ----> Append
 		iNode.n = nil
-		iNode.p = nil
+		iNode.p = head
+		head.n = iNode
 	end
 
 	LS.refreshHeadRoot()
