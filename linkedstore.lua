@@ -9,51 +9,43 @@ local LS = {} ----> (MapStore dependency)
 local Types = require("types")
 
 -- LinkedList
-local root: Types.Node -- reverse linkedlist inside of our hashmaps (first capture)
 local head: Types.Node -- like the most recent capture
+local root: Types.Node -- reverse linkedlist inside of our hashmaps (first capture)
 local current: Types.Node -- our current node
-
---------------------------------------------------------------------------------
-
---------------------------------------------------------------------------------
-------[ PRIVATE METHODS ]-------------------------------------------------------
---------------------------------------------------------------------------------
-local function refreshCurrent() ----> (refresh current var's val)
-	if current then
-		return
-	end
-
-	if head then
-		current = head
-	elseif root then
-		current = root
-	else
-		warn("LinkedList does not exist, so current was not assigned a value")
-		return
-	end
-end
-
-local function refreshHeadRoot() ----> (update head and root)
-	refreshCurrent()
-
-	-- Handle the head
-	while current.n do
-		current = current.n
-	end
-	head = current
-
-	-- Handle the root
-	while current.p do
-		current = current.p
-	end
-	root = current
-end
 
 --------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
 -------[ PUBLIC METHODS ]-------------------------------------------------------
 --------------------------------------------------------------------------------
+function LS.refreshCurrent() ----> (refresh current var's val)
+	if current then
+		return
+	end
+
+	current = head or root
+	if current == nil then
+		warn("LinkedList does not exist, so current was not assigned a value")
+		return
+	end
+end
+
+function LS.refreshHeadRoot() ----> (update head and root)
+	LS.refreshCurrent()
+
+	-- Handle the root
+	root = root or current
+	while root.p do
+		root = root.p
+	end
+
+	-- Handle the head
+	head = head or current
+	while head.n do
+		head = head.n
+	end
+end
+
 function LS.getHead()
 	return head
 end
@@ -67,24 +59,25 @@ function LS.getCurrent()
 end
 
 function LS.insertNode(iNode: Types.Node, pNode: Types.Node?, nNode: Types.Node?) ----> (insert a node)
-	if pNode then
-		iNode.p = pNode
-		iNode.n = pNode.n or nNode
-		pNode.n = iNode
-	elseif nNode then
-		iNode.p = nil
+	if pNode and nNode then
 		iNode.n = nNode
-	else -- append
-		iNode.p = head
-		head.n = iNode
-		head = iNode
-	end
-
-	if nNode then
+		iNode.p = pNode
+		pNode.n = iNode
 		nNode.p = iNode
+	elseif nNode then
+		iNode.n = nNode
+		iNode.p = nil ----> Dangerous bc it creates a 1-way road for iteration
+		nNode.p = iNode
+	elseif pNode then
+		iNode.n = nil ----> Also dangerous
+		iNode.p = pNode
+		pNode.n = iNode
+	else
+		iNode.n = nil
+		iNode.p = nil
 	end
 
-	refreshHeadRoot()
+	LS.refreshHeadRoot()
 
 	return iNode
 end
@@ -101,10 +94,10 @@ end
 function LS.getNode(target: number | string | nil): Types.Node
 	-- Checks
 	if head == nil then
-		refreshHeadRoot()
+		LS.refreshHeadRoot()
 	end
 	if current == nil then
-		refreshCurrent()
+		LS.refreshCurrent()
 	end
 
 	current = head
@@ -117,28 +110,65 @@ function LS.getNode(target: number | string | nil): Types.Node
 	return current
 end
 
-function LS.removeNode(rNode: Types.Node): nil | { nx: Types.Node?, pv: Types.Node? }
+function LS.removeNode(rNode: Types.Node): { nx: Types.Node?, pv: Types.Node? }
 	local p = rNode.p
 	local n = rNode.n
 
-	-- Checks
-	if n == nil and p == nil then
-		return
-	end
-	--
-	if p ~= nil then
+	if p then
 		p.n = n
 	end
 
-	if n ~= nil then
+	if n then
 		n.p = p
 	end
 	--
 
 	table.clear(rNode) ----> Should be gc'd bc no references
-	refreshHeadRoot()
+
+	if n == nil or p == nil then
+		LS.refreshHeadRoot()
+	end
 
 	return { nx = n, pv = p }
+end
+
+function LS.clear()
+	current = head
+
+	while current and current ~= root do
+		local p = current.p
+		table.clear(current)
+		current = p or root
+	end
+
+	LS.refreshHeadRoot()
+end
+
+function LS.sortByTimestamps() ----> Pretty self-explanatory
+	print("Sorting timeline")
+	local sortArray = {}
+	current = root
+
+	while current.n and current ~= head do
+		table.insert(sortArray, { current.timestamp, current.UID } :: { any })
+		current = current.n
+	end
+	table.insert(sortArray, { head.timestamp, head.UID } :: { any })
+
+	table.sort(sortArray)
+
+	LS.clear()
+
+	for _, info in pairs(sortArray) do
+		LS.insertNode({
+			UID = info[2],
+			timestamp = info[1],
+		}, current)
+	end
+
+	LS.refreshHeadRoot()
+
+	print("Timeline sort complete")
 end
 --------------------------------------------------------------------------------
 return LS

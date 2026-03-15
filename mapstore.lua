@@ -143,7 +143,7 @@ local function shiftDB() ----> (shift for new space)
 	while task.wait() do
 		local crumbs = LS.removeNode(c) ----> prev & next of our fallen soldier
 
-		if crumbs == nil or crumbs.pv == nil then
+		if crumbs.pv == nil then
 			break
 		end
 
@@ -296,7 +296,17 @@ function MS.setTime(t: number) ----> Moves all parts based on timestamp.
 	--[[ TODO
 	If it doesn't exist @ t, delete it. Thus, plugin isn't great for MeshParts
 	We can also hide them in a ServerStorage container, but that costs performance <---- probably doing this one (config varname is "Hidden")
-]]
+	]]
+
+	local node = LS.getRoot() ----> First node to last so that time is increasing
+
+	while node do
+		if node.timestamp > t then
+			-- "Destroy" it
+		else
+			-- Implement it
+		end
+	end
 end
 --------------------------------------------------------------------------------
 return MS
