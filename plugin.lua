@@ -19,6 +19,16 @@ local CS = game:GetService("CollectionService")
 local Types = require("types")
 local MS = require("mapstore")
 
+-- UI
+local container = plugin:CreateDockWidgetPluginGuiAsync(
+	"parametric_history",
+	DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Left, true, true, 100, 200, 30, 30) -- TODO: calibrate
+)
+local window: Frame = nil
+local template: Frame = nil
+
+window.Parent = container
+
 --------------------------------------------------------------------------------
 ----> UI
 ------> (new entry in capture log)
@@ -30,7 +40,9 @@ ENTRY
 - Action-respective icon
 
 ]]
-local function newEntry() end ----> Returns a new frame ready for insertion
+local function newEntry() ----> Returns a new frame ready for insertion
+end
+
 local function updateLog() end ----> Creates a new
 
 updateLog()

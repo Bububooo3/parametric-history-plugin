@@ -1,5 +1,6 @@
 {
     "luau-lsp.plugin.enabled": true,
     "luau-lsp.plugin.port": 3670,
-    "stylua.targetReleaseVersion": "latest"
+    "stylua.targetReleaseVersion": "latest",
+    "stylua.disableVersionCheck": true
 }

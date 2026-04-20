@@ -309,9 +309,44 @@ function MS.setTime(t: number) ----> Moves all parts based on timestamp.
 
 			tracked[UID][node.timestamp] = nil
 			CS:GetTagged(UID)[1].Parent = Hidden
-			LS.removeNode(node)
 		else
 			-- Implement it
+		end
+	end
+end
+
+function MS.remove(UID: string) end
+
+function MS.snipFuture(t: number)
+	LS.sortByTimestamps()
+
+	local node = LS.getRoot()
+
+	while node do
+		if node.timestamp > t then
+			local n = node.n
+			local UID = node.UID
+
+			tracked[UID][node.timestamp] = nil
+			CS:GetTagged(UID)[1]:Destroy()
+			LS.removeNode(node)
+		end
+	end
+end
+
+function MS.snipPast(t: number)
+	LS.sortByTimestamps()
+
+	local node = LS.getRoot()
+
+	while node do
+		if node.timestamp < t then
+			local n = node.n
+			local UID = node.UID
+
+			tracked[UID][node.timestamp] = nil
+			CS:GetTagged(UID)[1]:Destroy()
+			LS.removeNode(node)
 		end
 	end
 end
