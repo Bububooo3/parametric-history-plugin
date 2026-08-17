@@ -23,6 +23,43 @@ Regarding the code, MapStore enables me to get the history of one object, while 
 
     - Also insertion becomes way easier
 
+- Add a HistoryController module etc.
 
+    - LinkedStore and MapStore are doing more work than their names imply. The buffer-writing should be its own thing.
 
-- 
+    - It makes sense to have a central controller that the main script can interface with.
+
+    - plugin.lua is doing the tracking, which isn't great. Also an organization thing.
+
+    - ```lua
+        -- (What I'm thinking. Obv not functional code)
+
+        export type ObjectHistory = {
+            -- track captures of individual objects in a map like in the current MapStore. {obj: {[id] = {offset, operation}}}. Storing operation bc I need it for recomputing all relevant captures between a change in the past and the next time that property is changed instead of overwriting or doing a bunch of looping thru the buffer since everywhere else captures are stored as chunks.
+            "addEntry", "getLatestFromObjBefore", "killObj", "removeEntry", "clear"
+        }
+
+        export type Storage = {
+            -- store capture data in a buffer like in the current MapStore
+            "readFromOffset", "writeFromData", "shift", "clear"
+        }
+
+        export type Timeline = {
+            -- a basic double linkedlist of nodes but as its own data structure. The nodes only have UID and id like the current LinkedStore.
+
+        }
+
+        export type Tracker = {
+            -- handles connections, so it would also handle UID and triggering captures like the current plugin.lua does. Maybe it should be ECS, but idk. Might try that after the initial project works.
+
+        }
+
+        export type TVA = {
+            -- name inspired from Loki. Does what setTime(), snipPast(), snipFuture(), etc. were supposed to. Handles all the 3D-workspace interactions with the plugin like implementing timeline position changes. Should go from shortest distance tho whether it's starting from 0 or current spot in time. Does operation + prev = next whenever a change in the past happens so it's kind of like Markov Chains.
+
+        }
+
+        export type HistoryController = {
+            -- meant to interface directly w/ plugin.lua (which should handle UI stuff mainly) and combine the modules into callable and labeled processes like an untraditional undo/redo, etc.
+        }
+        ```
